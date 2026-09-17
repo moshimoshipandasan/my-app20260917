@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>可愛い日記 — Cute Diary (MVP)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg1:#FFEFDB; --bg2:#FFE4F0; --accent:#FF7EB6; --card:#FFFFFF;
+      --muted:#6b6b6b; --radius:16px;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; font-family:'Nunito',system-ui, -apple-system, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+      background: radial-gradient(circle at 10% 10%, var(--bg1), transparent 20%), radial-gradient(circle at 90% 90%, var(--bg2), transparent 20%), linear-gradient(180deg,#fff8f3,#fff);
+      color:#222; -webkit-font-smoothing:antialiased; padding:24px; box-sizing:border-box;
+    }
+    .container{max-width:900px;margin:0 auto;}
+    header{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+    .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ffd47a);display:flex;align-items:center;justify-content:center;font-size:28px;color:white;box-shadow:0 6px 18px rgba(255,126,182,0.18)}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .editor{display:grid;grid-template-columns:1fr 320px;gap:18px}
+    @media(max-width:860px){.editor{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 6px 18px rgba(96,96,96,0.06)}
+
+    .controls{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type="date"], select, textarea, input[type="file"]{width:100%;padding:8px;border-radius:10px;border:1px solid #f0e7e7;font-size:14px}
+    textarea{min-height:140px;resize:vertical;padding:12px}
+    button{background:var(--accent);color:white;border:none;padding:10px 12px;border-radius:12px;cursor:pointer;font-weight:700}
+    button.secondary{background:#f3f3f3;color:#333;font-weight:600}
+    .mood-picker{display:flex;gap:8px}
+    .mood{cursor:pointer;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #fff;box-shadow:0 6px 10px rgba(0,0,0,0.03)}
+    .mood.selected{box-shadow:inset 0 -6px 18px rgba(255,126,182,0.08);transform:translateY(-2px)}
+
+    .entries{margin-top:18px;display:grid;gap:12px}
+    .entry{padding:12px;border-radius:12px;background:linear-gradient(180deg,#fff,#fffaf6);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .entry .meta{font-size:13px;color:var(--muted)}
+    .entry .text{white-space:pre-wrap;margin-top:8px}
+    .entry .actions{display:flex;gap:8px}
+
+    footer{margin-top:22px;color:var(--muted);font-size:13px;text-align:center}
+
+    .tiny{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <!-- GitHub Pages will auto-publish this index.html from the repository root using configured Actions -->
+  <div class="container">
+    <header>
+      <div class="logo">🌸</div>
+      <div>
+        <h1>可愛い日記 — Cute Diary (MVP)</h1>
+        <p class="lead">日々のメモを可愛く保存。ローカルに保存され、すぐ表示されます。</p>
+      </div>
+    </header>
+
+    <main class="editor">
+      <section class="card">
+        <div class="controls">
+          <div class="row">
+            <input id="date" type="date" />
+          </div>
+
+          <div class="row mood-picker" id="moodPicker" title="気分を選んでね">
+            <div class="mood" data-mood="😍">😍</div>
+            <div class="mood" data-mood="😊">😊</div>
+            <div class="mood" data-mood="😴">😴</div>
+            <div class="mood" data-mood="😅">😅</div>
+            <div class="mood" data-mood="🤔">🤔</div>
+          </div>
+
+          <textarea id="text" placeholder="今日の出来事、気持ち、ちいさな幸せを書いてね..."></textarea>
+
+          <div class="row">
+            <button id="saveBtn">保存 💾</button>
+            <button id="clearBtn" class="secondary">クリア</button>
+          </div>
+
+          <div class="row tiny">
+            <button id="exportBtn" class="secondary">エクスポート (JSON)</button>
+            <label class="secondary" style="padding:8px;border-radius:10px;display:inline-block;cursor:pointer"><input id="importFile" type="file" accept="application/json" style="display:none">インポート</label>
+          </div>
+
+          <p class="tiny">※データはブラウザのローカルストレージに保存されます。GitHub Pages でホストしています。</p>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card">
+          <h3 style="margin-top:0">過去の日記</h3>
+          <div id="entries" class="entries">
+            <!-- entries injected here -->
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <small>Made with 💖 — ローカル保存のシンプルMVP</small>
+    </footer>
+  </div>
+
+  <script>
+    // Simple diary MVP: localStorage-backed
+    const KEY = 'cute-diary-entries-v1';
+    const dateInput = document.getElementById('date');
+    const textInput = document.getElementById('text');
+    const moodPicker = document.getElementById('moodPicker');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const entriesEl = document.getElementById('entries');
+    const exportBtn = document.getElementById('exportBtn');
+    const importFile = document.getElementById('importFile');
+
+    // set default date = today
+    function isoToday(){return new Date().toISOString().slice(0,10)}
+    dateInput.value = isoToday();
+
+    let selectedMood = null;
+    moodPicker.addEventListener('click', e=>{
+      const m = e.target.closest('.mood');
+      if(!m) return;
+      document.querySelectorAll('.mood').forEach(el=>el.classList.remove('selected'));
+      m.classList.add('selected');
+      selectedMood = m.dataset.mood;
+    });
+
+    function loadEntries(){
+      try{
+        return JSON.parse(localStorage.getItem(KEY)||'[]');
+      }catch(e){return []}
+    }
+    function saveEntries(arr){localStorage.setItem(KEY,JSON.stringify(arr))}
+
+    function renderEntries(){
+      const list = loadEntries().sort((a,b)=>b.createdAt - a.createdAt);
+      entriesEl.innerHTML = '';
+      if(list.length===0){entriesEl.innerHTML = '<div class="tiny">まだ日記がありません。さっそく書いてみよう！</div>';return}
+      for(const e of list){
+        const div = document.createElement('div'); div.className='entry';
+        div.innerHTML = `
+          <div>
+            <div class="meta">${e.date} ${e.mood ? '• '+e.mood : ''}</div>
+            <div class="text">${escapeHtml(truncate(e.text || '', 280))}</div>
+          </div>
+          <div class="actions">
+            <button class="editBtn" data-id="${e.id}">編集</button>
+            <button class="delBtn" data-id="${e.id}" style="background:#ffd6e8;color:#b3004d">削除</button>
+          </div>
+        `;
+        entriesEl.appendChild(div);
+      }
+    }
+
+    function truncate(s,n){return s.length>n? s.slice(0,n)+'…':s}
+    function escapeHtml(s){return s.replace(/[&<>"]+/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c] || c))}
+
+    saveBtn.addEventListener('click', ()=>{
+      const text = textInput.value.trim();
+      if(!text){alert('まず日記を書いてください🌱'); textInput.focus(); return}
+      const date = dateInput.value || isoToday();
+      const entries = loadEntries();
+      // if editing existing id stored on saveBtn.dataset.editId
+      const editId = saveBtn.dataset.editId;
+      if(editId){
+        const idx = entries.findIndex(it=>it.id===editId);
+        if(idx>=0){entries[idx].text = text; entries[idx].date = date; entries[idx].mood = selectedMood; entries[idx].updatedAt = Date.now()}
+        delete saveBtn.dataset.editId; saveBtn.textContent='保存 💾';
+      }else{
+        entries.push({id: 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), date, mood: selectedMood, text, createdAt: Date.now()});
+      }
+      saveEntries(entries);
+      renderEntries();
+      // clear editor for next
+      textInput.value=''; selectedMood=null; document.querySelectorAll('.mood').forEach(el=>el.classList.remove('selected'));
+      dateInput.value = isoToday();
+    });
+
+    clearBtn.addEventListener('click', ()=>{textInput.value=''; dateInput.value=isoToday(); selectedMood=null; document.querySelectorAll('.mood').forEach(el=>el.classList.remove('selected'))});
+
+    entriesEl.addEventListener('click', e=>{
+      const edit = e.target.closest('.editBtn');
+      const del = e.target.closest('.delBtn');
+      if(edit){
+        const id = edit.dataset.id; const entries = loadEntries(); const item = entries.find(it=>it.id===id); if(!item) return;
+        // load into editor
+        dateInput.value = item.date; textInput.value = item.text; selectedMood = item.mood;
+        document.querySelectorAll('.mood').forEach(el=>el.classList.toggle('selected', el.dataset.mood===selectedMood));
+        saveBtn.dataset.editId = id; saveBtn.textContent='更新 💾'; textInput.focus();
+      }
+      if(del){
+        const id = del.dataset.id; if(!confirm('本当に削除しますか？')) return; const entries = loadEntries().filter(it=>it.id!==id); saveEntries(entries); renderEntries();
+      }
+    });
+
+    exportBtn.addEventListener('click', ()=>{
+      const data = loadEntries(); const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cute-diary-export.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    importFile.addEventListener('change', async (e)=>{
+      const f = e.target.files[0]; if(!f) return; try{
+        const text = await f.text(); const arr = JSON.parse(text);
+        if(!Array.isArray(arr)){alert('不正なファイルです'); return}
+        const existing = loadEntries(); const merged = existing.concat(arr.map(it=>({...it, id: it.id || 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,6)})));
+        saveEntries(merged); renderEntries(); alert('インポートしました');
+      }catch(err){alert('インポートに失敗しました: '+err.message)} finally{e.target.value=''}
+    });
+
+    // initial render
+    renderEntries();
+  </script>
+</body>
+</html>
